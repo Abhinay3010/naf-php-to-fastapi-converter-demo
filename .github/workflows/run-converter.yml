@@ -1,11 +1,11 @@
-name: Run PHP to FastAPI Converter
+name: PHP → FastAPI Conversion & Tests
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  convert:
+  convert-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +20,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run converter
-        run: python converter/runner.py
+        run: python -m converter.runner
 
       - name: Show converted files
         run: ls -l output
