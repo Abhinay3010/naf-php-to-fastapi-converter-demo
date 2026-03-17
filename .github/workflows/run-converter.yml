@@ -9,25 +9,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
+      # Checkout repo
       - uses: actions/checkout@v3
 
-      # 2️⃣ Setup Python
+      # Setup Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      # 3️⃣ Install dependencies
+      # Install dependencies
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest
 
-      # 4️⃣ Run converter for all PHP files
+      # Run converter
       - name: Run PHP → FastAPI converter
         run: PYTHONPATH=. python converter/runner.py
 
-      # 5️⃣ Optional: Show all generated files in logs
-      - name: Show all converted files
+      # Show generated files
+      - name: Show all generated files
         run: |
           echo "📁 Listing all generated FastAPI files:"
           ls -1 output/
@@ -37,3 +37,9 @@ jobs:
             cat "$f"
             echo "======================"
           done
+
+      # ✅ Run automated tests
+      - name: Test generated FastAPI files
+        run: |
+          echo "🚀 Running tests on generated FastAPI files..."
+          pytest tests/test_generated_fastapi.py
