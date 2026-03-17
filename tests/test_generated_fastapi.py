@@ -4,22 +4,45 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from your_app.models import Base  # SQLAlchemy models
 
-# Ensure repo root is in path
+# Add repo root and output folder to sys.path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
-
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
-generated_files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith(".py")]
+sys.path.append(BASE_DIR)
+sys.path.append(OUTPUT_DIR)
 
-# Create in-memory DB
+# Import your SQLAlchemy Base
+# Adjust this import depending on where your Base is defined
+# For example, if you have output/db.py with Base:
+from db import Base  
+
+# Create an in-memory SQLite database
 engine = create_engine("sqlite:///:memory:")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create all tables before tests
 Base.metadata.create_all(bind=engine)
+
+# Collect all generated FastAPI files
+generated_files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith(".py")]
+
+# Minimal payloads for different generated files
+# Add entries here for each generated endpoint that requires input
+TEST_PAYLOADS = {
+    "update_user_query1.py": {"id": 1, "name": "Alice"},
+    "delete_user_query1.py": {"id": 1},
+    "user_query1.py": {"name": "Bob"},
+    "orders_query1.py": {"order_id": 1, "product_id": 1},
+    "products_query1.py": {"product_name": "Widget", "price": 9.99},
+    "sample1_query1.py": {"sample_field": "value"},  # adjust if needed
+}
 
 @pytest.mark.parametrize("file_name", generated_files)
 def test_fastapi_file_import(file_name):
+    """
+    Test that each generated FastAPI file can be imported,
+    has an 'app' object, and that /auto-endpoint works.
+    """
     module_path = os.path.join(OUTPUT_DIR, file_name)
     module_name = file_name.replace(".py", "")
     
@@ -32,18 +55,9 @@ def test_fastapi_file_import(file_name):
 
     client = TestClient(module.app)
 
-    # Example payloads for endpoints (you may need to adjust per file)
-    test_payloads = {
-        "update_user_query1.py": {"id": 1, "name": "Alice"},
-        "delete_user_query1.py": {"id": 1},
-        "user_query1.py": {"name": "Bob"},
-        "orders_query1.py": {"order_id": 1, "product_id": 1},
-        "products_query1.py": {"product_name": "Widget", "price": 9.99},
-    }
+    payload = TEST_PAYLOADS.get(file_name, {})
 
-    payload = test_payloads.get(file_name, {})
-
-    # Use POST/PUT/DELETE if payload exists, otherwise GET
+    # Use POST if payload exists, otherwise GET
     if payload:
         response = client.post("/auto-endpoint", json=payload)
     else:
