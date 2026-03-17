@@ -1,7 +1,6 @@
 import os
 import sys
 
-# ✅ Ensure project root is in Python path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
@@ -10,51 +9,63 @@ from converter.transformer import normalize_query
 from converter.generator import generate_fastapi_code
 
 
-def run_conversion():
-    print("🚀 Starting PHP → FastAPI conversion...")
+def process_file(file_path, output_dir):
+    file_name = os.path.basename(file_path)
+    print(f"\n📄 Processing: {file_name}")
 
-    # ✅ Resolve file paths safely
-    sample_path = os.path.join(BASE_DIR, "samples", "sample1.php")
-    output_dir = os.path.join(BASE_DIR, "output")
-    output_file = os.path.join(output_dir, "generated_api.py")
+    with open(file_path, "r") as f:
+        php_code = f.read()
 
-    # ✅ Ensure output directory exists
-    os.makedirs(output_dir, exist_ok=True)
-
-    # ✅ Read PHP file
-    try:
-        with open(sample_path, "r") as f:
-            php_code = f.read()
-    except FileNotFoundError:
-        print(f"❌ Sample file not found: {sample_path}")
-        return
-
-    print("📄 PHP file loaded")
-
-    # ✅ Extract SQL + variables
     queries = extract_sql_queries(php_code)
     variables = extract_variables(php_code)
 
-    print(f"🔍 Found {len(queries)} SQL query(ies)")
-    print(f"🧩 Detected variables: {variables}")
-
     if not queries:
-        print("⚠️ No SQL queries found. Exiting.")
+        print("⚠️ No SQL queries found. Skipping.")
         return
 
-    # ✅ Normalize query
-    query = normalize_query(queries[0])
-    print(f"🔄 Normalized Query:\n{query}")
+    for i, raw_query in enumerate(queries):
+        print(f"\n🔍 Query {i+1}:")
+        print(raw_query)
 
-    # ✅ Generate FastAPI code
-    code = generate_fastapi_code(query, variables)
+        normalized_query = normalize_query(raw_query)
 
-    # ✅ Write output file
-    with open(output_file, "w") as f:
-        f.write(code)
+        print("\n🔄 Normalized Query:")
+        print(normalized_query)
 
-    print("✅ Conversion complete!")
-    print(f"📁 Output file: {output_file}")
+        generated_code = generate_fastapi_code(normalized_query, variables)
+
+        output_file = os.path.join(
+            output_dir,
+            f"{file_name.replace('.php','')}_query{i+1}.py"
+        )
+
+        with open(output_file, "w") as f:
+            f.write(generated_code)
+
+        print("\n🚀 Generated FastAPI Code:")
+        print("=" * 60)
+        print(generated_code)
+        print("=" * 60)
+
+        print(f"✅ Saved to: {output_file}")
+
+
+def run_conversion():
+    print("🚀 Starting bulk PHP → FastAPI conversion...")
+
+    samples_dir = os.path.join(BASE_DIR, "samples")
+    output_dir = os.path.join(BASE_DIR, "output")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    php_files = [f for f in os.listdir(samples_dir) if f.endswith(".php")]
+
+    print(f"📁 Found {len(php_files)} PHP files")
+
+    for file in php_files:
+        process_file(os.path.join(samples_dir, file), output_dir)
+
+    print("\n🎉 Conversion completed!")
 
 
 if __name__ == "__main__":
