@@ -3,6 +3,7 @@ import sys
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.pool import StaticPool
 
 # Ensure repo root is in path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,13 +11,14 @@ sys.path.append(BASE_DIR)
 
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
-# ✅ Setup in-memory SQLite for testing (thread-safe)
+# ✅ CRITICAL FIX: shared in-memory SQLite DB
 engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False}
+    "sqlite://",  # NOT :memory:
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
 )
 
-# ✅ Pre-create required tables (IMPORTANT: use begin())
+# ✅ Create tables + seed data (shared across all connections)
 with engine.begin() as conn:
     conn.execute(text("""
         CREATE TABLE users (
@@ -38,17 +40,10 @@ with engine.begin() as conn:
         );
     """))
 
-    # ✅ Insert dummy data (prevents empty responses / edge cases)
-    conn.execute(text("""
-        INSERT INTO users (name) VALUES ('Alice')
-    """))
-    conn.execute(text("""
-        INSERT INTO orders (user_id) VALUES (1)
-    """))
-    conn.execute(text("""
-        INSERT INTO products (product_name, price)
-        VALUES ('test product', 9.99)
-    """))
+    # Insert dummy data
+    conn.execute(text("INSERT INTO users (name) VALUES ('Alice')"))
+    conn.execute(text("INSERT INTO orders (user_id) VALUES (1)"))
+    conn.execute(text("INSERT INTO products (product_name, price) VALUES ('test product', 9.99)"))
 
 # Collect all generated FastAPI files
 generated_files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith(".py")]
@@ -67,15 +62,15 @@ def test_fastapi_file_import(file_name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    # Patch engine to use test in-memory DB
+    # Patch engine to use shared test DB
     module.engine = engine
 
-    # Check app object exists
+    # Check app exists
     assert hasattr(module, "app"), f"'app' not found in {file_name}"
 
     client = TestClient(module.app)
 
-    # Detect required query params from function signature
+    # Build dummy params
     from inspect import signature
     sig = signature(module.auto_endpoint)
     params = {
@@ -83,9 +78,9 @@ def test_fastapi_file_import(file_name):
         for p in sig.parameters.values()
     }
 
-    # Call endpoint with dummy parameters
+    # Call endpoint
     response = client.get("/auto-endpoint", params=params)
     
-    # Assert it works
-    assert response.status_code == 200, f"{file_name} endpoint /auto-endpoint failed"
+    # Assertions
+    assert response.status_code == 200, f"{file_name} endpoint failed"
     assert isinstance(response.json(), list), f"{file_name} response is not a list"
