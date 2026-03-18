@@ -1,15 +1,26 @@
 import re
 
-def extract_sql_queries(php_code: str) -> list[str]:
+def extract_sql_queries(php_code: str):
     """
     Extracts SQL queries from PHP code.
-    Looks for $sql = "..." patterns.
+    Handles:
+    - $query = "..."
+    - $sql = '...'
+    - multi-line queries
+    Returns a list of SQL strings
     """
-    return re.findall(r'\$sql\s*=\s*"([^"]+)"', php_code)
+    # Match anything like $var = "SQL ..." or 'SQL ...';
+    pattern = re.compile(
+        r'\$\w+\s*=\s*(?P<quote>["\'])(.*?)\1;', 
+        re.DOTALL | re.IGNORECASE
+    )
+    matches = pattern.findall(php_code)
+    queries = []
 
-def extract_variables(php_code: str) -> list[str]:
-    """
-    Extracts PHP variable names used in the SQL query.
-    E.g., $id, $name → ['id', 'name']
-    """
-    return re.findall(r'\$([a-zA-Z_][a-zA-Z0-9_]*)', php_code)
+    for quote, sql in matches:
+        sql_clean = sql.strip()
+        # Basic heuristic: must contain SELECT, INSERT, UPDATE, DELETE
+        if re.search(r'\b(SELECT|INSERT|UPDATE|DELETE)\b', sql_clean, re.IGNORECASE):
+            queries.append(sql_clean)
+
+    return queries
