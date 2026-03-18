@@ -13,26 +13,17 @@ def run_conversion():
         with open(f"samples/{sample_file}", "r") as f:
             php_code = f.read()
 
-        # Extract SQL queries and variables from PHP
         queries = extract_sql_queries(php_code)
-        variables = extract_variables(php_code)  # This should return a list of variable names
+        variables = extract_variables(php_code)
 
         if not queries:
             print(f"No SQL found in {sample_file}")
             continue
 
-        query = normalize_query(queries[0])
-
-        # Ensure variables is always a list of names
-        if isinstance(variables, str):
-            var_list = [v.strip() for v in variables.split(",") if v.strip()]
-        elif isinstance(variables, list):
-            var_list = variables
-        else:
-            var_list = []
+        query = normalize_query(queries[0], variables)
 
         output_file = f"output/{sample_file.replace('.php','_query1.py')}"
-        generate_fastapi_code(var_list, query, output_file)
+        generate_fastapi_code(variables, query, output_file)
 
         print(f"✅ Converted {sample_file} → {output_file}")
 
