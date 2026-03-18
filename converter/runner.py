@@ -6,7 +6,7 @@ import os
 def run_conversion():
     os.makedirs("output", exist_ok=True)
     sample_files = os.listdir("samples")
-    
+
     for sample_file in sample_files:
         if not sample_file.endswith(".php"):
             continue
@@ -15,7 +15,7 @@ def run_conversion():
 
         # Extract SQL queries and variables from PHP
         queries = extract_sql_queries(php_code)
-        variables_list = extract_variables(php_code)
+        variables = extract_variables(php_code)  # This should return a list of variable names
 
         if not queries:
             print(f"No SQL found in {sample_file}")
@@ -23,14 +23,16 @@ def run_conversion():
 
         query = normalize_query(queries[0])
 
-        # Convert variables list to comma-separated string for generator
-        params_signature = ", ".join(variables_list)
+        # Ensure variables is always a list of names
+        if isinstance(variables, str):
+            var_list = [v.strip() for v in variables.split(",") if v.strip()]
+        elif isinstance(variables, list):
+            var_list = variables
+        else:
+            var_list = []
 
-        # Determine output path
         output_file = f"output/{sample_file.replace('.php','_query1.py')}"
-
-        # Generate FastAPI code
-        generate_fastapi_code(params_signature, query, output_file)
+        generate_fastapi_code(var_list, query, output_file)
 
         print(f"✅ Converted {sample_file} → {output_file}")
 
