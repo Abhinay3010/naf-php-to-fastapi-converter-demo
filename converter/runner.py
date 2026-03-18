@@ -13,6 +13,7 @@ def run_conversion():
         with open(f"samples/{sample_file}", "r") as f:
             php_code = f.read()
 
+        # Extract SQL queries and variables from PHP
         queries = extract_sql_queries(php_code)
         variables = extract_variables(php_code)
 
@@ -21,11 +22,13 @@ def run_conversion():
             continue
 
         query = normalize_query(queries[0])
-        code = generate_fastapi_code(query, variables)
+        params_signature = variables  # Pass variables as params_signature
 
+        # Determine output path
         output_file = f"output/{sample_file.replace('.php','_query1.py')}"
-        with open(output_file, "w") as f:
-            f.write(code)
+
+        # Generate FastAPI code
+        generate_fastapi_code(params_signature, query, output_file)
 
         print(f"✅ Converted {sample_file} → {output_file}")
 
