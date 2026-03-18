@@ -15,14 +15,16 @@ def run_conversion():
 
         # Extract SQL queries and variables from PHP
         queries = extract_sql_queries(php_code)
-        variables = extract_variables(php_code)
+        variables_list = extract_variables(php_code)
 
         if not queries:
             print(f"No SQL found in {sample_file}")
             continue
 
         query = normalize_query(queries[0])
-        params_signature = variables  # Pass variables as params_signature
+
+        # Convert variables list to comma-separated string for generator
+        params_signature = ", ".join(variables_list)
 
         # Determine output path
         output_file = f"output/{sample_file.replace('.php','_query1.py')}"
