@@ -10,11 +10,14 @@ sys.path.append(BASE_DIR)
 
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
-# Setup in-memory SQLite for testing
-engine = create_engine("sqlite:///:memory:")
+# ✅ Setup in-memory SQLite for testing (thread-safe)
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False}
+)
 
-# Pre-create required tables
-with engine.connect() as conn:
+# ✅ Pre-create required tables (IMPORTANT: use begin())
+with engine.begin() as conn:
     conn.execute(text("""
         CREATE TABLE users (
             id INTEGER PRIMARY KEY,
@@ -33,6 +36,18 @@ with engine.connect() as conn:
             product_name TEXT,
             price REAL
         );
+    """))
+
+    # ✅ Insert dummy data (prevents empty responses / edge cases)
+    conn.execute(text("""
+        INSERT INTO users (name) VALUES ('Alice')
+    """))
+    conn.execute(text("""
+        INSERT INTO orders (user_id) VALUES (1)
+    """))
+    conn.execute(text("""
+        INSERT INTO products (product_name, price)
+        VALUES ('test product', 9.99)
     """))
 
 # Collect all generated FastAPI files
@@ -63,7 +78,10 @@ def test_fastapi_file_import(file_name):
     # Detect required query params from function signature
     from inspect import signature
     sig = signature(module.auto_endpoint)
-    params = {p.name: "test" if p.annotation == str else 1 for p in sig.parameters.values()}
+    params = {
+        p.name: "test" if p.annotation == str else 1
+        for p in sig.parameters.values()
+    }
 
     # Call endpoint with dummy parameters
     response = client.get("/auto-endpoint", params=params)
