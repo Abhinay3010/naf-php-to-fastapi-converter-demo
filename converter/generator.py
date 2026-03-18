@@ -11,38 +11,40 @@ def generate_fastapi_code(params_signature, query: str, output_file: str):
     output_file: path to write the generated .py file
     """
 
-    # If params_signature is a string, convert to list of names
+    # Convert string signature to list of names
     if isinstance(params_signature, str):
-        param_names = [p.split(":")[0].strip() for p in params_signature.split(",")]
+        param_names = [p.split(":")[0].strip() for p in params_signature.split(",") if p.strip()]
     elif isinstance(params_signature, list):
-        param_names = [p.strip() for p in params_signature]
+        param_names = [p.strip() for p in params_signature if p.strip()]
     else:
         raise ValueError("params_signature must be a string or list of parameter names")
 
-    # Build params dictionary from function arguments
-    params_dict_code = ", ".join([f'"{name}": {name}' for name in param_names])
-
-    # Reconstruct params_signature for function definition
-    if isinstance(params_signature, list):
-        params_signature_code = ", ".join([f"{name}: str" for name in param_names])  # default type str
+    # Handle case with no parameters
+    if param_names:
+        params_dict_code = ", ".join([f'"{name}": {name}' for name in param_names])
+        func_signature_code = ", ".join([f"{name}: str" for name in param_names]) if isinstance(params_signature, list) else params_signature
     else:
-        params_signature_code = params_signature
+        params_dict_code = ""
+        func_signature_code = ""
 
-    # Generate Python code for the endpoint
+    # Replace any '?' placeholders in SQL with named parameters
+    for name in param_names:
+        query = query.replace("?", f":{name}", 1)
+
+    # Generate the FastAPI endpoint code
     endpoint_code = f"""from fastapi import FastAPI
 from sqlalchemy import text, create_engine
 
 app = FastAPI()
 
-# Engine will be patched in tests if needed
 engine = create_engine("sqlite:///./test.db")
 
 @app.get("/auto-endpoint")
-def auto_endpoint({params_signature_code}):
+def auto_endpoint({func_signature_code}):
     query = text(\"\"\"{query}\"\"\")
-    params = {{{params_dict_code}}}
+    params = {{{params_dict_code}}} if {len(param_names)} else None
     with engine.connect() as conn:
-        result = conn.execute(query, params)
+        result = conn.execute(query, params or {{}})
         conn.commit()
         return [dict(row._mapping) for row in result]
 """
